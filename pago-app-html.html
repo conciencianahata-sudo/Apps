@@ -377,6 +377,7 @@ function renderResumen() {
         <div class="row-amount">${fmtBs(s.monto)}<br><span class="row-my">+${fmtBs(s.mi50)}</span></div>
         <div class="row-actions">
           <button class="btn-edit" onclick="abrirModal(${s.id})">✏️</button>
+          <button class="btn-del" onclick="eliminarSesion(${s.id})">🗑</button>
         </div>
       </div>`).join("");
 }
@@ -411,6 +412,7 @@ function renderHistorial() {
         <div class="row-amount"><span class="row-my">+${fmtBs(s.mi50)}</span></div>
         <div class="row-actions">
           <button class="btn-edit" onclick="abrirModal(${s.id})">✏️</button>
+          <button class="btn-del" onclick="eliminarSesion(${s.id})">🗑</button>
         </div>
       </div>`).join("")}
   </div>`;
@@ -439,6 +441,15 @@ function agregarConsultante() {
   save(); inp.value="";
   renderPacientes(); renderRegForm();
   notify("Consultante agregado/a");
+}
+
+function eliminarSesion(id) {
+  if(!confirm("¿Eliminar este pago? El consultante no será eliminado.")) return;
+  db.sesiones = db.sesiones.filter(s=>s.id!==id);
+  save();
+  notify("Pago eliminado");
+  renderResumen();
+  renderHistorial();
 }
 
 function eliminarConsultante(id) {
