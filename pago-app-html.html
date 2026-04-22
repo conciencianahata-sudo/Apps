@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#7c3aed"/>
+<title>Mis Consultantes</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#f5f0ff;min-height:100vh;max-width:480px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#7c3aed,#a855f7);padding:18px 20px 12px;color:#fff}
+  .header h1{font-size:20px;font-weight:700}
+  .header p{font-size:13px;opacity:.85}
+  .tabs{display:flex;background:#fff;border-bottom:2px solid #e9d5ff;position:sticky;top:0;z-index:10}
+  .tab{flex:1;padding:10px 0;font-size:11px;font-weight:400;background:none;border:none;border-bottom:3px solid transparent;color:#888;cursor:pointer}
+  .tab.active{font-weight:700;border-bottom:3px solid #7c3aed;color:#7c3aed}
+  .content{padding:16px 14px;display:flex;flex-direction:column;gap:12px}
+  .card{background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 6px rgba(124,58,237,.08)}
+  .label{font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px}
+  .label:first-child{margin-top:0}
+  input,select{width:100%;border:1.5px solid #e9d5ff;border-radius:10px;padding:10px 12px;font-size:15px;outline:none;margin-bottom:8px;background:#fff}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .chip{border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;background:#ede9fe;color:#7c3aed}
+  .chip.active{background:#7c3aed;color:#fff}
+  .metodos{display:flex;gap:10px;margin-bottom:8px}
+  .metodo{flex:1;border:none;border-radius:10px;padding:12px 0;font-size:15px;font-weight:600;cursor:pointer;background:#ede9fe;color:#7c3aed}
+  .metodo.active{background:#7c3aed;color:#fff}
+  .btn-main{width:100%;background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px}
+  .mi50{background:#f3e8ff;border-radius:10px;padding:10px 14px;font-size:14px;color:#7c3aed;font-weight:600;margin-top:4px;margin-bottom:8px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(124,58,237,.08);text-align:center}
+  .stat.full{grid-column:1/-1}
+  .stat-icon{font-size:22px}
+  .stat-val{font-size:18px;font-weight:700;color:#333}
+  .stat-val.purple{color:#7c3aed}
+  .stat-label{font-size:11px;color:#aaa;margin-top:2px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f3e8ff}
+  .row:last-child{border-bottom:none}
+  .row-name{font-size:14px;font-weight:600}
+  .row-sub{font-size:12px;color:#aaa}
+  .row-amount{font-size:14px;color:#555;text-align:right}
+  .row-my{font-size:12px;color:#7c3aed;font-weight:600}
+  .btn-del{background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+  .add-row{display:flex;gap:8px}
+  .add-row input{flex:1;margin-bottom:0}
+  .btn-add{background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:20px;cursor:pointer}
+  .btn-csv{background:#ede9fe;color:#7c3aed;border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;width:100%}
+  .csv-hint{font-size:12px;color:#888;margin:0 0 8px}
+  .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:20px;font-size:14px;color:#fff;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.2);transition:opacity .3s}
+  .toast.ok{background:#16a34a}
+  .toast.err{background:#ef4444}
+  .empty{text-align:center;color:#aaa;margin-top:20px;font-size:14px}
+  .cons-count{font-size:12px;color:#aaa}
+  .hist-total{font-size:13px;color:#555;font-weight:600;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💜 Mis Consultantes</h1>
+  <p>Registro de pagos</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTab('registrar')">➕ Registrar</button>
+  <button class="tab" onclick="setTab('resumen')">📊 Resumen</button>
+  <button class="tab" onclick="setTab('historial')">🗂 Historial</button>
+  <button class="tab" onclick="setTab('pacientes')">👥 Pacientes</button>
+</div>
+
+<!-- REGISTRAR -->
+<div id="tab-registrar" class="content">
+  <div class="card">
+    <div class="label">Consultante</div>
+    <select id="reg-consultante"><option value="">— Seleccionar —</option></select>
+    <div class="label">Fecha</div>
+    <input type="date" id="reg-fecha"/>
+    <div class="label">Monto (Bs)</div>
+    <div class="chips" id="reg-chips"></div>
+    <input type="number" id="reg-monto" placeholder="Otro monto..." oninput="calcMi50()"/>
+    <div class="label">Método de pago</div>
+    <div class="metodos">
+      <button class="metodo" id="btn-efectivo" onclick="setMetodo('Efectivo')">💵 Efectivo</button>
+      <button class="metodo" id="btn-qr" onclick="setMetodo('QR')">📲 QR</button>
+    </div>
+    <div class="mi50" id="mi50-display" style="display:none"></div>
+    <button class="btn-main" onclick="registrarSesion()">✅ Registrar sesión</button>
+  </div>
+</div>
+
+<!-- RESUMEN -->
+<div id="tab-resumen" class="content" style="display:none">
+  <div class="card">
+    <div class="label">Ver mes</div>
+    <select id="res-mes" onchange="renderResumen()"></select>
+  </div>
+  <div class="stats" id="res-stats"></div>
+  <div class="card" id="res-detalle"></div>
+</div>
+
+<!-- HISTORIAL -->
+<div id="tab-historial" class="content" style="display:none">
+  <div class="card">
+    <div class="label">Consultante</div>
+    <select id="hist-consultante" onchange="renderHistorial()"><option value="">— Seleccionar —</option></select>
+  </div>
+  <div id="hist-result"></div>
+</div>
+
+<!-- PACIENTES -->
+<div id="tab-pacientes" class="content" style="display:none">
+  <div class="card">
+    <div class="label">Agregar consultante</div>
+    <div class="add-row">
+      <input type="text" id="nuevo-nombre" placeholder="Nombre y apellido..." onkeydown="if(event.key==='Enter')agregarConsultante()"/>
+      <button class="btn-add" onclick="agregarConsultante()">+</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">Importar desde CSV</div>
+    <p class="csv-hint">Exporta tu hoja de Google Sheets como CSV (Archivo → Descargar → CSV) y selecciónala aquí. Solo se agregarán los nombres nuevos.</p>
+    <button class="btn-csv" onclick="document.getElementById('csv-input').click()">📂 Seleccionar archivo CSV</button>
+    <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importarCSV(this)"/>
+  </div>
+  <div class="card" id="lista-consultantes"></div>
+</div>
+
+<div class="toast" id="toast" style="display:none"></div>
+
+<script>
+const TARIFAS = [70, 80, 84, 94];
+const KEY = "psico_app_v2";
+let metodoSel = "";
+let db = {consultantes:[], sesiones:[]};
+
+function load() {
+  try { const d = localStorage.getItem(KEY); if(d) db = JSON.parse(d); } catch{}
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch{}
+}
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+function fmtBs(n) { return `${Math.round(n)} Bs`; }
+function mesLabel(m) {
+  const [y,mo] = m.split("-");
+  const names=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  return `${names[parseInt(mo)-1]} ${y}`;
+}
+function nombreC(id) {
+  return (db.consultantes.find(c=>c.id==id)||{nombre:"Desconocido"}).nombre;
+}
+
+function notify(text, type="ok") {
+  const t = document.getElementById("toast");
+  t.textContent = text;
+  t.className = `toast ${type}`;
+  t.style.display = "block";
+  setTimeout(()=>{ t.style.display="none"; }, 2500);
+}
+
+function setTab(tab) {
+  ["registrar","resumen","historial","pacientes"].forEach(id=>{
+    document.getElementById(`tab-${id}`).style.display = id===tab?"flex":"none";
+  });
+  document.querySelectorAll(".tab").forEach((el,i)=>{
+    el.classList.toggle("active", ["registrar","resumen","historial","pacientes"][i]===tab);
+  });
+  if(tab==="registrar") renderRegForm();
+  if(tab==="resumen") renderResumen();
+  if(tab==="historial") renderHistSelect();
+  if(tab==="pacientes") renderPacientes();
+}
+
+// ── REGISTRAR ──
+function renderRegForm() {
+  const sel = document.getElementById("reg-consultante");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
+    sel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+  });
+  sel.value = cur;
+  document.getElementById("reg-fecha").value = document.getElementById("reg-fecha").value || today();
+  const chips = document.getElementById("reg-chips");
+  chips.innerHTML = "";
+  TARIFAS.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = `${t} Bs`;
+    b.onclick = () => {
+      document.getElementById("reg-monto").value = t;
+      document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+      b.classList.add("active");
+      calcMi50();
+    };
+    chips.appendChild(b);
+  });
+}
+
+function setMetodo(m) {
+  metodoSel = m;
+  document.getElementById("btn-efectivo").classList.toggle("active", m==="Efectivo");
+  document.getElementById("btn-qr").classList.toggle("active", m==="QR");
+}
+
+function calcMi50() {
+  const val = parseFloat(document.getElementById("reg-monto").value);
+  const el = document.getElementById("mi50-display");
+  if(val > 0) {
+    el.style.display = "block";
+    el.textContent = `Tu parte (50%): ${fmtBs(val*0.5)}`;
+  } else {
+    el.style.display = "none";
+  }
+  // sync chips
+  document.querySelectorAll(".chip").forEach(c=>{
+    c.classList.toggle("active", parseFloat(c.textContent)===val);
+  });
+}
+
+function registrarSesion() {
+  const cId = document.getElementById("reg-consultante").value;
+  const fecha = document.getElementById("reg-fecha").value;
+  const monto = parseFloat(document.getElementById("reg-monto").value);
+  if(!cId) return notify("Selecciona un/a consultante","err");
+  if(!monto||monto<=0) return notify("Ingresa un monto válido","err");
+  if(!metodoSel) return notify("Selecciona el método de pago","err");
+  db.sesiones.push({id:Date.now(), consultanteId:cId, fecha, monto, metodo:metodoSel, mi50:monto*0.5});
+  save();
+  document.getElementById("reg-monto").value = "";
+  document.getElementById("reg-fecha").value = today();
+  metodoSel = "";
+  document.getElementById("btn-efectivo").classList.remove("active");
+  document.getElementById("btn-qr").classList.remove("active");
+  document.getElementById("mi50-display").style.display="none";
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+  notify("✅ Sesión registrada");
+}
+
+// ── RESUMEN ──
+function renderResumen() {
+  const meses = [...new Set(db.sesiones.map(s=>s.fecha.slice(0,7)))].sort().reverse();
+  const allMeses = [...new Set([today().slice(0,7),...meses])];
+  const sel = document.getElementById("res-mes");
+  const cur = sel.value || allMeses[0] || today().slice(0,7);
+  sel.innerHTML = allMeses.map(m=>`<option value="${m}" ${m===cur?"selected":""}>${mesLabel(m)}</option>`).join("");
+  const mes = sel.value || cur;
+  const ss = db.sesiones.filter(s=>s.fecha.startsWith(mes));
+  const total = ss.reduce((a,s)=>a+s.monto,0);
+  const miTotal = ss.reduce((a,s)=>a+s.mi50,0);
+  const efec = ss.filter(s=>s.metodo==="Efectivo").reduce((a,s)=>a+s.mi50,0);
+  const qr = ss.filter(s=>s.metodo==="QR").reduce((a,s)=>a+s.mi50,0);
+  document.getElementById("res-stats").innerHTML = `
+    <div class="stat"><div class="stat-icon">📋</div><div class="stat-val">${ss.length}</div><div class="stat-label">Sesiones</div></div>
+    <div class="stat"><div class="stat-icon">💰</div><div class="stat-val">${fmtBs(total)}</div><div class="stat-label">Total cobrado</div></div>
+    <div class="stat"><div class="stat-icon">💜</div><div class="stat-val purple">${fmtBs(miTotal)}</div><div class="stat-label">Tu ganancia</div></div>
+    <div class="stat"><div class="stat-icon">💵</div><div class="stat-val">${fmtBs(efec)}</div><div class="stat-label">Efectivo</div></div>
+    <div class="stat full"><div class="stat-icon">📲</div><div class="stat-val">${fmtBs(qr)}</div><div class="stat-label">Por QR</div></div>
+  `;
+  const det = document.getElementById("res-detalle");
+  if(ss.length===0){ det.innerHTML=""; return; }
+  det.innerHTML = `<div class="label">Detalle de sesiones</div>` +
+    [...ss].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(s=>`
+      <div class="row">
+        <div><div class="row-name">${nombreC(s.consultanteId)}</div><div class="row-sub">${s.fecha} · ${s.metodo}</div></div>
+        <div class="row-amount">${fmtBs(s.monto)}<br><span class="row-my">+${fmtBs(s.mi50)}</span></div>
+      </div>`).join("");
+}
+
+// ── HISTORIAL ──
+function renderHistSelect() {
+  const sel = document.getElementById("hist-consultante");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
+    sel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+  });
+  sel.value = cur;
+  renderHistorial();
+}
+
+function renderHistorial() {
+  const id = document.getElementById("hist-consultante").value;
+  const el = document.getElementById("hist-result");
+  if(!id){ el.innerHTML=""; return; }
+  const ss = db.sesiones.filter(s=>s.consultanteId==id).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const miTotal = ss.reduce((a,s)=>a+s.mi50,0);
+  el.innerHTML = `<div class="card">
+    <div class="label">${nombreC(id)}</div>
+    <div class="hist-total">${ss.length} sesión(es) · Tu total: ${fmtBs(miTotal)}</div>
+    ${ss.length===0?'<div class="empty">Sin sesiones</div>':ss.map(s=>`
+      <div class="row">
+        <div><div class="row-sub">${s.fecha}</div><div class="row-sub">${s.metodo}</div></div>
+        <div class="row-amount">${fmtBs(s.monto)}<br><span class="row-my">+${fmtBs(s.mi50)}</span></div>
+      </div>`).join("")}
+  </div>`;
+}
+
+// ── PACIENTES ──
+function renderPacientes() {
+  const el = document.getElementById("lista-consultantes");
+  const sorted = [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  el.innerHTML = `<div class="label">${sorted.length} consultante(s)</div>` +
+    (sorted.length===0?'<div class="empty">Aún no hay consultantes</div>':
+    sorted.map(c=>`
+      <div class="row">
+        <div><div class="row-name">${c.nombre}</div><div class="cons-count">${db.sesiones.filter(s=>s.consultanteId==c.id).length} sesión(es)</div></div>
+        <button class="btn-del" onclick="eliminarConsultante(${c.id})">🗑</button>
+      </div>`).join(""));
+}
+
+function agregarConsultante() {
+  const inp = document.getElementById("nuevo-nombre");
+  const nombre = inp.value.trim();
+  if(!nombre) return notify("Escribe un nombre","err");
+  if(db.consultantes.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase()))
+    return notify("Ya existe ese consultante","err");
+  db.consultantes.push({id:Date.now(), nombre});
+  save(); inp.value="";
+  renderPacientes();
+  renderRegForm();
+  notify("Consultante agregado/a");
+}
+
+function eliminarConsultante(id) {
+  if(!confirm("¿Eliminar este consultante y todas sus sesiones?")) return;
+  db.consultantes = db.consultantes.filter(c=>c.id!==id);
+  db.sesiones = db.sesiones.filter(s=>s.consultanteId!==id);
+  save(); renderPacientes(); renderRegForm();
+  notify("Consultante eliminado/a");
+}
+
+function importarCSV(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    let nuevos = 0;
+    lines.forEach(line=>{
+      const nombre = line.split(",")[0].replace(/^"|"$/g,"").trim();
+      if(!nombre||nombre.toLowerCase()==="nombre") return;
+      if(!db.consultantes.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase())) {
+        db.consultantes.push({id:Date.now()+Math.random(), nombre});
+        nuevos++;
+      }
+    });
+    save(); renderPacientes(); renderRegForm();
+    notify(nuevos>0?`${nuevos} consultante(s) importado(s)`:"Sin consultantes nuevos");
+  };
+  reader.readAsText(file);
+  input.value="";
+}
+
+// ── INIT ──
+load();
+document.getElementById("reg-fecha").value = today();
+renderRegForm();
+</script>
+</body>
+</html>
