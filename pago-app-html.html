@@ -28,6 +28,7 @@
   .metodo{flex:1;border:none;border-radius:10px;padding:12px 0;font-size:15px;font-weight:600;cursor:pointer;background:#ede9fe;color:#7c3aed}
   .metodo.active{background:#7c3aed;color:#fff}
   .btn-main{width:100%;background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px}
+  .btn-secondary{width:100%;background:#ede9fe;color:#7c3aed;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:6px}
   .mi50{background:#f3e8ff;border-radius:10px;padding:10px 14px;font-size:14px;color:#7c3aed;font-weight:600;margin-top:4px;margin-bottom:8px}
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .stat{background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(124,58,237,.08);text-align:center}
@@ -42,18 +43,26 @@
   .row-sub{font-size:12px;color:#aaa}
   .row-amount{font-size:14px;color:#555;text-align:right}
   .row-my{font-size:12px;color:#7c3aed;font-weight:600}
-  .btn-del{background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+  .row-actions{display:flex;gap:6px;margin-left:8px}
+  .btn-edit{background:#ede9fe;color:#7c3aed;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
+  .btn-del{background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
   .add-row{display:flex;gap:8px}
   .add-row input{flex:1;margin-bottom:0}
   .btn-add{background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:20px;cursor:pointer}
   .btn-csv{background:#ede9fe;color:#7c3aed;border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;width:100%}
   .csv-hint{font-size:12px;color:#888;margin:0 0 8px}
-  .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:20px;font-size:14px;color:#fff;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.2);transition:opacity .3s}
+  .toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:20px;font-size:14px;color:#fff;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.2)}
   .toast.ok{background:#16a34a}
   .toast.err{background:#ef4444}
   .empty{text-align:center;color:#aaa;margin-top:20px;font-size:14px}
   .cons-count{font-size:12px;color:#aaa}
   .hist-total{font-size:13px;color:#555;font-weight:600;margin-bottom:10px}
+  /* Modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,.2)}
+  .modal h2{font-size:16px;font-weight:700;color:#7c3aed;margin-bottom:14px}
+  .modal-btns{display:flex;gap:10px;margin-top:10px}
+  .modal-btns button{flex:1}
 </style>
 </head>
 <body>
@@ -127,12 +136,38 @@
   <div class="card" id="lista-consultantes"></div>
 </div>
 
+<!-- MODAL EDITAR -->
+<div class="modal-bg" id="modal-edit" style="display:none">
+  <div class="modal">
+    <h2>✏️ Editar sesión</h2>
+    <div class="label">Consultante</div>
+    <select id="edit-consultante"></select>
+    <div class="label">Fecha</div>
+    <input type="date" id="edit-fecha"/>
+    <div class="label">Monto (Bs)</div>
+    <div class="chips" id="edit-chips"></div>
+    <input type="number" id="edit-monto" placeholder="Otro monto..." oninput="calcEditMi50()"/>
+    <div class="mi50" id="edit-mi50" style="display:none"></div>
+    <div class="label">Método de pago</div>
+    <div class="metodos">
+      <button class="metodo" id="edit-btn-efectivo" onclick="setEditMetodo('Efectivo')">💵 Efectivo</button>
+      <button class="metodo" id="edit-btn-qr" onclick="setEditMetodo('QR')">📲 QR</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-main" style="margin-top:0" onclick="guardarEdicion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" style="display:none"></div>
 
 <script>
 const TARIFAS = [70, 80, 84, 94];
 const KEY = "psico_app_v2";
 let metodoSel = "";
+let editMetodoSel = "";
+let editSesionId = null;
 let db = {consultantes:[], sesiones:[]};
 
 function load() {
@@ -141,9 +176,7 @@ function load() {
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch{}
 }
-function today() {
-  return new Date().toISOString().split("T")[0];
-}
+function today() { return new Date().toISOString().split("T")[0]; }
 function fmtBs(n) { return `${Math.round(n)} Bs`; }
 function mesLabel(m) {
   const [y,mo] = m.split("-");
@@ -193,7 +226,7 @@ function renderRegForm() {
     b.textContent = `${t} Bs`;
     b.onclick = () => {
       document.getElementById("reg-monto").value = t;
-      document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+      document.querySelectorAll("#reg-chips .chip").forEach(c=>c.classList.remove("active"));
       b.classList.add("active");
       calcMi50();
     };
@@ -210,14 +243,9 @@ function setMetodo(m) {
 function calcMi50() {
   const val = parseFloat(document.getElementById("reg-monto").value);
   const el = document.getElementById("mi50-display");
-  if(val > 0) {
-    el.style.display = "block";
-    el.textContent = `Tu parte (50%): ${fmtBs(val*0.5)}`;
-  } else {
-    el.style.display = "none";
-  }
-  // sync chips
-  document.querySelectorAll(".chip").forEach(c=>{
+  if(val > 0) { el.style.display="block"; el.textContent=`Tu parte (50%): ${fmtBs(val*0.5)}`; }
+  else el.style.display="none";
+  document.querySelectorAll("#reg-chips .chip").forEach(c=>{
     c.classList.toggle("active", parseFloat(c.textContent)===val);
   });
 }
@@ -231,14 +259,90 @@ function registrarSesion() {
   if(!metodoSel) return notify("Selecciona el método de pago","err");
   db.sesiones.push({id:Date.now(), consultanteId:cId, fecha, monto, metodo:metodoSel, mi50:monto*0.5});
   save();
-  document.getElementById("reg-monto").value = "";
-  document.getElementById("reg-fecha").value = today();
-  metodoSel = "";
+  document.getElementById("reg-monto").value="";
+  document.getElementById("reg-fecha").value=today();
+  metodoSel="";
   document.getElementById("btn-efectivo").classList.remove("active");
   document.getElementById("btn-qr").classList.remove("active");
   document.getElementById("mi50-display").style.display="none";
-  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+  document.querySelectorAll("#reg-chips .chip").forEach(c=>c.classList.remove("active"));
   notify("✅ Sesión registrada");
+}
+
+// ── MODAL EDITAR ──
+function abrirModal(id) {
+  const s = db.sesiones.find(s=>s.id==id);
+  if(!s) return;
+  editSesionId = id;
+  editMetodoSel = s.metodo;
+
+  // poblar consultantes
+  const sel = document.getElementById("edit-consultante");
+  sel.innerHTML = "";
+  [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
+    sel.innerHTML += `<option value="${c.id}" ${c.id==s.consultanteId?"selected":""}>${c.nombre}</option>`;
+  });
+
+  document.getElementById("edit-fecha").value = s.fecha;
+  document.getElementById("edit-monto").value = s.monto;
+
+  // chips edición
+  const chips = document.getElementById("edit-chips");
+  chips.innerHTML = "";
+  TARIFAS.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (t===s.monto?" active":"");
+    b.textContent = `${t} Bs`;
+    b.onclick = () => {
+      document.getElementById("edit-monto").value = t;
+      document.querySelectorAll("#edit-chips .chip").forEach(c=>c.classList.remove("active"));
+      b.classList.add("active");
+      calcEditMi50();
+    };
+    chips.appendChild(b);
+  });
+
+  calcEditMi50();
+  document.getElementById("edit-btn-efectivo").classList.toggle("active", s.metodo==="Efectivo");
+  document.getElementById("edit-btn-qr").classList.toggle("active", s.metodo==="QR");
+  document.getElementById("modal-edit").style.display="flex";
+}
+
+function cerrarModal() {
+  document.getElementById("modal-edit").style.display="none";
+  editSesionId=null;
+}
+
+function setEditMetodo(m) {
+  editMetodoSel=m;
+  document.getElementById("edit-btn-efectivo").classList.toggle("active", m==="Efectivo");
+  document.getElementById("edit-btn-qr").classList.toggle("active", m==="QR");
+}
+
+function calcEditMi50() {
+  const val = parseFloat(document.getElementById("edit-monto").value);
+  const el = document.getElementById("edit-mi50");
+  if(val>0){ el.style.display="block"; el.textContent=`Tu parte (50%): ${fmtBs(val*0.5)}`; }
+  else el.style.display="none";
+  document.querySelectorAll("#edit-chips .chip").forEach(c=>{
+    c.classList.toggle("active", parseFloat(c.textContent)===val);
+  });
+}
+
+function guardarEdicion() {
+  const cId = document.getElementById("edit-consultante").value;
+  const fecha = document.getElementById("edit-fecha").value;
+  const monto = parseFloat(document.getElementById("edit-monto").value);
+  if(!monto||monto<=0) return notify("Ingresa un monto válido","err");
+  if(!editMetodoSel) return notify("Selecciona el método de pago","err");
+  db.sesiones = db.sesiones.map(s=>
+    s.id==editSesionId ? {...s, consultanteId:cId, fecha, monto, metodo:editMetodoSel, mi50:monto*0.5} : s
+  );
+  save();
+  cerrarModal();
+  notify("✅ Sesión actualizada");
+  renderResumen();
+  renderHistorial();
 }
 
 // ── RESUMEN ──
@@ -266,8 +370,14 @@ function renderResumen() {
   det.innerHTML = `<div class="label">Detalle de sesiones</div>` +
     [...ss].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(s=>`
       <div class="row">
-        <div><div class="row-name">${nombreC(s.consultanteId)}</div><div class="row-sub">${s.fecha} · ${s.metodo}</div></div>
+        <div style="flex:1">
+          <div class="row-name">${nombreC(s.consultanteId)}</div>
+          <div class="row-sub">${s.fecha} · ${s.metodo}</div>
+        </div>
         <div class="row-amount">${fmtBs(s.monto)}<br><span class="row-my">+${fmtBs(s.mi50)}</span></div>
+        <div class="row-actions">
+          <button class="btn-edit" onclick="abrirModal(${s.id})">✏️</button>
+        </div>
       </div>`).join("");
 }
 
@@ -294,8 +404,14 @@ function renderHistorial() {
     <div class="hist-total">${ss.length} sesión(es) · Tu total: ${fmtBs(miTotal)}</div>
     ${ss.length===0?'<div class="empty">Sin sesiones</div>':ss.map(s=>`
       <div class="row">
-        <div><div class="row-sub">${s.fecha}</div><div class="row-sub">${s.metodo}</div></div>
-        <div class="row-amount">${fmtBs(s.monto)}<br><span class="row-my">+${fmtBs(s.mi50)}</span></div>
+        <div style="flex:1">
+          <div class="row-sub">${s.fecha}</div>
+          <div class="row-sub">${s.metodo} · ${fmtBs(s.monto)}</div>
+        </div>
+        <div class="row-amount"><span class="row-my">+${fmtBs(s.mi50)}</span></div>
+        <div class="row-actions">
+          <button class="btn-edit" onclick="abrirModal(${s.id})">✏️</button>
+        </div>
       </div>`).join("")}
   </div>`;
 }
@@ -321,8 +437,7 @@ function agregarConsultante() {
     return notify("Ya existe ese consultante","err");
   db.consultantes.push({id:Date.now(), nombre});
   save(); inp.value="";
-  renderPacientes();
-  renderRegForm();
+  renderPacientes(); renderRegForm();
   notify("Consultante agregado/a");
 }
 
