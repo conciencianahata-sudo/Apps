@@ -29,6 +29,7 @@
   .metodo.active{background:#7c3aed;color:#fff}
   .btn-main{width:100%;background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px}
   .btn-secondary{width:100%;background:#ede9fe;color:#7c3aed;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:6px}
+  .btn-green{width:100%;background:#dcfce7;color:#16a34a;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:6px}
   .mi50{background:#f3e8ff;border-radius:10px;padding:10px 14px;font-size:14px;color:#7c3aed;font-weight:600;margin-top:4px;margin-bottom:8px}
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .stat{background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(124,58,237,.08);text-align:center}
@@ -46,6 +47,8 @@
   .row-actions{display:flex;gap:6px;margin-left:8px}
   .btn-edit{background:#ede9fe;color:#7c3aed;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
   .btn-del{background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
+  .btn-arch{background:#fef9c3;color:#ca8a04;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
+  .btn-restore{background:#dcfce7;color:#16a34a;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
   .add-row{display:flex;gap:8px}
   .add-row input{flex:1;margin-bottom:0}
   .btn-add{background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:20px;cursor:pointer}
@@ -57,7 +60,8 @@
   .empty{text-align:center;color:#aaa;margin-top:20px;font-size:14px}
   .cons-count{font-size:12px;color:#aaa}
   .hist-total{font-size:13px;color:#555;font-weight:600;margin-bottom:10px}
-  /* Modal */
+  .archived-label{font-size:12px;color:#ca8a04;font-weight:600;margin:12px 0 6px;padding-top:10px;border-top:1px dashed #fde68a}
+  .toggle-arch{background:none;border:none;color:#7c3aed;font-size:12px;font-weight:600;cursor:pointer;padding:4px 0;text-decoration:underline}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
   .modal{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,.2)}
   .modal h2{font-size:16px;font-weight:700;color:#7c3aed;margin-bottom:14px}
@@ -107,6 +111,7 @@
   </div>
   <div class="stats" id="res-stats"></div>
   <div class="card" id="res-detalle"></div>
+  <button class="btn-green" onclick="exportarExcel()">📥 Exportar a Excel</button>
 </div>
 
 <!-- HISTORIAL -->
@@ -168,6 +173,7 @@ const KEY = "psico_app_v2";
 let metodoSel = "";
 let editMetodoSel = "";
 let editSesionId = null;
+let mostrarArchivados = false;
 let db = {consultantes:[], sesiones:[]};
 
 function load() {
@@ -213,7 +219,8 @@ function renderRegForm() {
   const sel = document.getElementById("reg-consultante");
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Seleccionar —</option>';
-  [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
+  // solo activos
+  [...db.consultantes].filter(c=>!c.archivado).sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
     sel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
   });
   sel.value = cur;
@@ -275,18 +282,13 @@ function abrirModal(id) {
   if(!s) return;
   editSesionId = id;
   editMetodoSel = s.metodo;
-
-  // poblar consultantes
   const sel = document.getElementById("edit-consultante");
   sel.innerHTML = "";
   [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
     sel.innerHTML += `<option value="${c.id}" ${c.id==s.consultanteId?"selected":""}>${c.nombre}</option>`;
   });
-
   document.getElementById("edit-fecha").value = s.fecha;
   document.getElementById("edit-monto").value = s.monto;
-
-  // chips edición
   const chips = document.getElementById("edit-chips");
   chips.innerHTML = "";
   TARIFAS.forEach(t=>{
@@ -301,7 +303,6 @@ function abrirModal(id) {
     };
     chips.appendChild(b);
   });
-
   calcEditMi50();
   document.getElementById("edit-btn-efectivo").classList.toggle("active", s.metodo==="Efectivo");
   document.getElementById("edit-btn-qr").classList.toggle("active", s.metodo==="QR");
@@ -338,11 +339,36 @@ function guardarEdicion() {
   db.sesiones = db.sesiones.map(s=>
     s.id==editSesionId ? {...s, consultanteId:cId, fecha, monto, metodo:editMetodoSel, mi50:monto*0.5} : s
   );
-  save();
-  cerrarModal();
+  save(); cerrarModal();
   notify("✅ Sesión actualizada");
-  renderResumen();
-  renderHistorial();
+  renderResumen(); renderHistorial();
+}
+
+// ── ELIMINAR SESIÓN ──
+function eliminarSesion(id) {
+  if(!confirm("¿Eliminar este pago? El consultante no será eliminado.")) return;
+  db.sesiones = db.sesiones.filter(s=>s.id!==id);
+  save();
+  notify("Pago eliminado");
+  renderResumen(); renderHistorial();
+}
+
+// ── EXPORTAR EXCEL ──
+function exportarExcel() {
+  if(db.sesiones.length===0) return notify("No hay sesiones para exportar","err");
+  const filas = [["Consultante","Fecha","Monto Total (Bs)","Tu parte (Bs)","Método"]];
+  [...db.sesiones].sort((a,b)=>a.fecha.localeCompare(b.fecha)).forEach(s=>{
+    filas.push([nombreC(s.consultanteId), s.fecha, s.monto, s.mi50, s.metodo]);
+  });
+  const csv = filas.map(f=>f.map(v=>`"${v}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mis_consultantes_${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  notify("📥 Archivo descargado");
 }
 
 // ── RESUMEN ──
@@ -388,7 +414,8 @@ function renderHistSelect() {
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Seleccionar —</option>';
   [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(c=>{
-    sel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+    const tag = c.archivado ? " 📦" : "";
+    sel.innerHTML += `<option value="${c.id}">${c.nombre}${tag}</option>`;
   });
   sel.value = cur;
   renderHistorial();
@@ -421,14 +448,52 @@ function renderHistorial() {
 // ── PACIENTES ──
 function renderPacientes() {
   const el = document.getElementById("lista-consultantes");
-  const sorted = [...db.consultantes].sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  el.innerHTML = `<div class="label">${sorted.length} consultante(s)</div>` +
-    (sorted.length===0?'<div class="empty">Aún no hay consultantes</div>':
-    sorted.map(c=>`
-      <div class="row">
-        <div><div class="row-name">${c.nombre}</div><div class="cons-count">${db.sesiones.filter(s=>s.consultanteId==c.id).length} sesión(es)</div></div>
-        <button class="btn-del" onclick="eliminarConsultante(${c.id})">🗑</button>
-      </div>`).join(""));
+  const activos = [...db.consultantes].filter(c=>!c.archivado).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const archivados = [...db.consultantes].filter(c=>c.archivado).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
+  let html = `<div class="label">${activos.length} consultante(s) activo(s)</div>`;
+  if(activos.length===0) html += '<div class="empty">Sin consultantes activos</div>';
+  html += activos.map(c=>`
+    <div class="row">
+      <div><div class="row-name">${c.nombre}</div><div class="cons-count">${db.sesiones.filter(s=>s.consultanteId==c.id).length} sesión(es)</div></div>
+      <div class="row-actions">
+        <button class="btn-arch" onclick="archivarConsultante(${c.id})" title="Archivar">📦</button>
+        <button class="btn-del" onclick="eliminarConsultante(${c.id})" title="Eliminar">🗑</button>
+      </div>
+    </div>`).join("");
+
+  if(archivados.length > 0) {
+    html += `<div class="archived-label">📦 ${archivados.length} archivado(s) <button class="toggle-arch" onclick="toggleArchivados()">${mostrarArchivados?"Ocultar":"Ver"}</button></div>`;
+    if(mostrarArchivados) {
+      html += archivados.map(c=>`
+        <div class="row" style="opacity:.7">
+          <div><div class="row-name">${c.nombre}</div><div class="cons-count">${db.sesiones.filter(s=>s.consultanteId==c.id).length} sesión(es)</div></div>
+          <div class="row-actions">
+            <button class="btn-restore" onclick="restaurarConsultante(${c.id})" title="Restaurar">↩️</button>
+            <button class="btn-del" onclick="eliminarConsultante(${c.id})" title="Eliminar">🗑</button>
+          </div>
+        </div>`).join("");
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleArchivados() {
+  mostrarArchivados = !mostrarArchivados;
+  renderPacientes();
+}
+
+function archivarConsultante(id) {
+  db.consultantes = db.consultantes.map(c=> c.id==id ? {...c, archivado:true} : c);
+  save(); renderPacientes(); renderRegForm();
+  notify("Consultante archivado/a 📦");
+}
+
+function restaurarConsultante(id) {
+  db.consultantes = db.consultantes.map(c=> c.id==id ? {...c, archivado:false} : c);
+  save(); renderPacientes(); renderRegForm();
+  notify("Consultante restaurado/a ✅");
 }
 
 function agregarConsultante() {
@@ -437,23 +502,14 @@ function agregarConsultante() {
   if(!nombre) return notify("Escribe un nombre","err");
   if(db.consultantes.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase()))
     return notify("Ya existe ese consultante","err");
-  db.consultantes.push({id:Date.now(), nombre});
+  db.consultantes.push({id:Date.now(), nombre, archivado:false});
   save(); inp.value="";
   renderPacientes(); renderRegForm();
   notify("Consultante agregado/a");
 }
 
-function eliminarSesion(id) {
-  if(!confirm("¿Eliminar este pago? El consultante no será eliminado.")) return;
-  db.sesiones = db.sesiones.filter(s=>s.id!==id);
-  save();
-  notify("Pago eliminado");
-  renderResumen();
-  renderHistorial();
-}
-
 function eliminarConsultante(id) {
-  if(!confirm("¿Eliminar este consultante y todas sus sesiones?")) return;
+  if(!confirm("¿Eliminar este consultante y todas sus sesiones permanentemente?")) return;
   db.consultantes = db.consultantes.filter(c=>c.id!==id);
   db.sesiones = db.sesiones.filter(s=>s.consultanteId!==id);
   save(); renderPacientes(); renderRegForm();
@@ -471,7 +527,7 @@ function importarCSV(input) {
       const nombre = line.split(",")[0].replace(/^"|"$/g,"").trim();
       if(!nombre||nombre.toLowerCase()==="nombre") return;
       if(!db.consultantes.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase())) {
-        db.consultantes.push({id:Date.now()+Math.random(), nombre});
+        db.consultantes.push({id:Date.now()+Math.random(), nombre, archivado:false});
         nuevos++;
       }
     });
