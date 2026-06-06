@@ -138,6 +138,13 @@
     <button class="btn-csv" onclick="document.getElementById('csv-input').click()">📂 Seleccionar archivo CSV</button>
     <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importarCSV(this)"/>
   </div>
+  <div class="card">
+    <div class="label">Copia de seguridad</div>
+    <p class="csv-hint">Descarga un respaldo de todos tus datos o restaura uno anterior.</p>
+    <button class="btn-green" onclick="descargarJSON()">💾 Descargar respaldo JSON</button>
+    <button class="btn-csv" style="margin-top:8px" onclick="document.getElementById('json-input').click()">📂 Cargar respaldo JSON</button>
+    <input type="file" id="json-input" accept=".json" style="display:none" onchange="cargarJSON(this)"/>
+  </div>
   <div class="card" id="lista-consultantes"></div>
 </div>
 
@@ -533,6 +540,37 @@ function importarCSV(input) {
     });
     save(); renderPacientes(); renderRegForm();
     notify(nuevos>0?`${nuevos} consultante(s) importado(s)`:"Sin consultantes nuevos");
+  };
+  reader.readAsText(file);
+  input.value="";
+}
+
+// ── RESPALDO JSON ──
+function descargarJSON() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `respaldo_consultantes_${today()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  notify("💾 Respaldo descargado");
+}
+
+function cargarJSON(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const datos = JSON.parse(e.target.result);
+      if(!datos.consultantes || !datos.sesiones) return notify("Archivo inválido","err");
+      if(!confirm(`¿Restaurar respaldo?\nEsto reemplazará todos tus datos actuales.\n\n${datos.consultantes.length} consultante(s) y ${datos.sesiones.length} sesión(es) encontradas.`)) return;
+      db = datos;
+      save();
+      renderPacientes(); renderRegForm();
+      notify("✅ Datos restaurados correctamente");
+    } catch { notify("Error al leer el archivo","err"); }
   };
   reader.readAsText(file);
   input.value="";
